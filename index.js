@@ -1,25 +1,15 @@
 const TelegramBot = require('node-telegram-bot-api');
-const bot = new TelegramBot('6171952434:AAGEpyg-y3j45NEwDUR92eh9uVddVP_DHyI', { polling: true})
-module.exports = bot;
+const bot = new TelegramBot('6210140587:6174075115:AAF1jNr133frCvjHtOXxl5zrALmkt8E74rY', { polling: true })
 const fs = require('fs');
 const movies = require('./movies.json');
-
-
-function getMovies(msg){
-    const text = msg.text;
-
-    movies.push(text);
-    fs.writeFileSync('movies.json', JSON.stringify(movies, null, '\t'));
-    bot.removeListener('message', getMovies);
-}
+let newMove;
 
 var options = {
     reply_markup: JSON.stringify({
         inline_keyboard: [
-            [{text: "sendMessage", callback_data:"sendMessage", getMovies}],
-            [{text: "показать фильм", callback_data:"/showmovie"}],
-            [{text: "about", callback_data:"about"}],
-            [{text: "support", url: "t.me/BXyhbq",  callback_data:"support"}],
+            [{text: "Показать фильм", callback_data:"showMovie"}],
+            [{text: "support", callback_data:"support", url: "https://t.me/VitiaGurkoskii"}],
+            [{text: "Перейти в канал", callback_data: null, url: "https://t.me/filmaniaTV"}]
 
         ]   
     })
@@ -28,53 +18,87 @@ var options = {
 var adminOptions = {
     reply_markup: JSON.stringify({
         inline_keyboard: [
-            [{text: "добавить фильм", callback_data: " добавить фильм"}],
-            [{text: "просмотреть текущие фильмы", callback_data: "просмотреть текущие фильмы"}],
+            [{text: "добавить фильм", callback_data: "addMovie"}],
+            [{text: "просмотреть текущие фильмы", callback_data: "showCurrentMovie"}],
         ]
     
 })
 }
 
+function getId(msg) {
+    const text = msg.text;
+    movies.push({
+        movie_name: newMove,
+        id: text
 
+    })
+
+    fs.writeFileSync('./movies.json', JSON.stringify(movies, null , '\t'))
+    bot.sendMessage(msg.chat.id, "Фильм добавлен")
+    bot.removeListener('message', getId)
+
+}
+
+function getMovies(msg) {
+    const text = msg.text;
+    newMove = text;
+    bot.sendMessage(msg.chat.id, "Введите айди")
+    bot.on('message', getId)
+    bot.removeListener('message', getMovies)
+
+}
+
+function sendMovie(msg){
+    const text = msg.text;
+    let users = JSON.parse(fs.readFileSync('./movies.json', 'utf8'));
+    for (let movie in users){
+        let movieName = users[movie].movie_name;
+        let movieId = users[movie].id;
+        if (movieId == text){
+            bot.sendMessage(msg.chat.id, movieName)
+            break;
+        }
+    }
+    bot.removeListener('message', sendMovie)
+}
 
 bot.on ("message", msg => {
+    const admins = ["796478916", "5286688116"]
     const chatId = msg.chat.id;
     const text =  msg.text;
-    if (chatId != "5770886713"){
+    console.log(msg);
+    if (chatId == admins[0]){
         if (text == "/start"){
-            bot.sendMessage(chatId, "Привет! Вы можете начать работу", options)
+            bot.sendMessage(chatId, "Привет! Вы можете начать работу", adminOptions)
+            console.log(msg);
         }
-}
-})
-
-bot.on("message", msg => {
-    const chatId = msg.chat.id;
-    // const text =  msg.text; если надо будет отлавливать сообщения пользователя тогда расскаментируй эту строчку и добавь куда надо
-    var movs = movies.filter(x => x.id === msg.from.id)[0]
-
-    //мой chatId 5770886713
-    if (chatId == "поставь свой чат айди когда будешь решать задачу тебе надо быть админом для этого нужен твой чат айди"){
-        bot.sendMessage(chatId, "привет админ вот что ты можешь сделать", adminOptions)
-        bot.on("message", getMovies);
-        bot.removeAllListeners("message")
-        if (!movs){
-            movies.push({
-                name: msg.from.username,
-                id: msg.from.username
-            })
-            var movs = movies.filter(x => x.id === msg.from.id)[0]
-            bot.sendMessage(chatId, "Привет! фильм был добавлен")
-        }else{
-            bot.sendMessage(chatId, "такой фильм уже существует")
+    }else if (chatId == admins[1]){
+        if (text == "/start"){
+            bot.sendMessage(chatId, "Привет! Вы можете начать работу", adminOptions)
+            console.log(msg);
         }
-        
-
+    }else {
+        bot.sendMessage(chatId, "Привет! Вы можете начать работу", options)
+        console.log(msg);
+    
     }
+    
 })
 
-bot.on("callback_query", query => {
-    bot.sendMessage(query.message.chat.id, "привет админ вот твоя кнопка", query.data)
-})
-
+bot.on('callback_query', msg => {
+    const chatId = msg.message.chat.id;
+    const action = msg.data;
+  
+    if (action == 'addMovie') {
+        bot.sendMessage(chatId, `Впишите название фильма который вы хотите добавить\nвпишите номер фильма по которому он будет показываться`)
+        bot.on("message", getMovies)
+        
+        
+    }else if (action == 'showMovie'){
+        bot.sendMessage(chatId, "Введите номер")
+        bot.on('message', sendMovie)
+    }
+  
+  });
 
 bot.on("polling_error", console.log)
